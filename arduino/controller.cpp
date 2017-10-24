@@ -1,13 +1,4 @@
 #include "general.h"
-
-/*FILTER BUTTERWORTH DMP */
-static const float B1f=0.6389;
-static const float B2f=1.2779;
-static const float B3f=0.6389;
-static const float A2f=1.1430;
-static const float A3f=0.4128;
-
-
 #define Kp 2.5
 #define Ki 200
 #define Kd 0
@@ -16,13 +7,20 @@ static const float A3f=0.4128;
 #define T 0.01
 #define deadzone 10
 
-extern int sensorValue;                       // value read  from  the pot
+/*BUTTERWORTH FILTER DMP */
+static const float B1f=0.6389;
+static const float B2f=1.2779;
+static const float B3f=0.6389;
+static const float A2f=1.1430;
+static const float A3f=0.4128;
+
+extern int sensorValue;                       // value read  from  the LDR sensor
 extern long int outputValue;                  // value output  to  the PWM (analog out)
 extern bool begin_filters;
 extern int counter_small;
 extern float LUX_mat[max_Output/n_increments+1][2];
 
-		//For filter INPUT
+//For filter INPUT
 float    sensorValue_filt;
 float    y1_s;
 float    y2_s;
@@ -60,7 +58,7 @@ void PID(float ref)
   filter_butter(&sensorValue_filt, &y1_s, &y2_s, sensorValue, &x1_s, &x2_s);
 
   e = ref- sensorValue_filt;
-  p = K1*ref -Kp*y;
+  p = K1*ref - Kp*y;
   i = i_ant + K2*(e + e_ant);
   d = K3*d_ant - K4*(y - y_ant);
 

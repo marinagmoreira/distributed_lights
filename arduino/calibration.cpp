@@ -4,21 +4,24 @@
 /* Global variables                                                         */
 /****************************************************************************/
 
-extern int sensorValue;                       // value read  from  the pot
+extern int sensorValue;                       // value read  from  the LDR
 extern long int outputValue;                  // value output  to  the PWM (analog out)
 
-extern int counter_small;                     //counter for measurements  
-extern float LUX_mat[max_Output/n_increments+1][2];
+extern int counter_small;                     // flag to detect interruptions
+extern float LUX_mat[max_Output/n_increments+1][2];  //Matrix containing the LUX value when applying a given PWM is applied to the LED
 
 
-// Function PWM2LUX- conversion PWM to lux units	
+// Function PWM2LUX- conversion PWM to LUX units	
+
 float PWM2LUX(float PWM)
 {
 	return pow(10,(log10(((Vcc*max_PWM/( PWM *max_Volt))-1)*R1)-b)/a);
 }
 
 
-//Function Calibration 
+//The calibration function computes the values to insert in the LUX-mat matrix. The PWM output of the LED is incremented of n_increments and the steady state response
+//is collected. The response is then converted to LUX and saved in the matrix next to the PWM value that generated it.
+
 void Calibration ()
 {
 	int not_calibrated=1;
@@ -39,10 +42,10 @@ void Calibration ()
 
 			//inclements if we are getting to the end of the samples
 			if (counter_large>(intervals-n_average))
-        sum=sum+sensorValue;	
+				sum=sum+sensorValue;	
 	  }
 
-		//Last count, be carefull with condition if n_increments is changed
+	//Last count, be carefull with condition if n_increments is changed
   	if (counter_large==intervals && outputValue<=250){	
 
 			//saves the output

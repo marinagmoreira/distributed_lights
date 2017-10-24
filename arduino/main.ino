@@ -36,16 +36,16 @@ void setup()
   Serial.begin(38400);
   
   // initialize interrupt
-	Timer1.initialize(microseconds) ;
+  Timer1.initialize(microseconds) ;
   Timer1.attachInterrupt(tempo); 
   
-	//Serial.println(outputValue); 
-	//Serial.print("---\n"); 
+  //Serial.println(outputValue); 
+  //Serial.print("---\n"); 
 
-	counter_small=0; 
+  counter_small=0; 
 
-	sensorValue = 0; 
-	outputValue = 0; 
+  sensorValue = 0; 
+  outputValue = 0; 
 
   Calibration();
   Serial.println("Exited setup");
@@ -58,6 +58,13 @@ void setup()
 /****************************************************************************/
 void loop() 
 {   
+	recvWithEndMarker();
+    
+	Controller(ref_PWM);
+}
+
+void recvWithEndMarker() {
+	
   //To read imputs from the serial monitor!
   if (Serial.available() > 0) {    // is a character available?
     rx_byte = Serial.read();       // get the character
@@ -65,6 +72,7 @@ void loop()
     if ((rx_byte >= '0') && (rx_byte <= '9')) {
       rx_str += rx_byte;
     }
+	
     else if (rx_byte == '\n') {
       // end of string
       if (not_number) {
@@ -83,6 +91,5 @@ void loop()
       not_number = true;    // flag a non-number
     }
   } 
-    
-	Controller(ref_PWM);
+  
 }
