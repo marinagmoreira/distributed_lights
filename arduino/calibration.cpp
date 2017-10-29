@@ -1,93 +1,116 @@
 #include "general.h"
+#include <stdint.h>
 
-/****************************************************************************/
-/* Global variables                                                         */
-/****************************************************************************/
-
-extern int sensorValue;                       // value read  from  the LDR
-extern long int outputValue;                  // value output  to  the PWM (analog out)
-
-extern int counter_small;                     // flag to detect interruptions
-extern float LUX_mat[max_Output/n_increments+1][2];  //Matrix containing the LUX value when applying a given PWM is applied to the LED
+float Kff=0;
+float sum_Kff=0;
 
 
-// Function PWM2LUX- conversion PWM to LUX units	
-
+// Function PWM2LUX- conversion PWM to lux units	
 float PWM2LUX(float PWM)
 {
 	return pow(10,(log10(((Vcc*max_PWM/( PWM *max_Volt))-1)*R1)-b)/a);
 }
 
 
-//The calibration function computes the values to insert in the LUX-mat matrix. The PWM output of the LED is incremented of n_increments and the steady state response
-//is collected. The response is then converted to LUX and saved in the matrix next to the PWM value that generated it.
-
+//Function Calibration 
 void Calibration ()
 {
 	int not_calibrated=1;
 	long int sum=0;
 	float average;
 	int counter_large=0;         //counter for output change
+	unsigned long t0 = 0;
+	unsigned long cur_time = 0;
+	int is_first_sample = 1;
+	int mat_counter = 0;
+	float first_stair=0;
+	float K;
+	
+	uint16_t response_values[intervals][1];
 
-  while(not_calibrated){
 
-    if (counter_small==1){
-      sensorValue = analogRead(analogInPin); //  read  the analog  in  value 
 
-			//write the readings value
-			//Serial.print(sensorValue); 
-			//Serial.print("\n");      
-			counter_small=0;
-			counter_large++;
+	while(not_calibrated)
+	{
 
-			//inclements if we are getting to the end of the samples
-			if (counter_large>(intervals-n_average))
-				sum=sum+sensorValue;	
-	  }
+		//if interruption hits
+		if (counter_small==1)
+		{
+      		sensorValue = analogRead(analogInPin); //  read  the analog  in  value 
+      		response_values[mat_counter][0] = sensorValue;
 
-	//Last count, be carefull with condition if n_increments is changed
-  	if (counter_large==intervals && outputValue<=250){	
+	  		//inclements if we are getting to the end of the samples
+      		if (counter_large >= (intervals-n_average))
+      			sum=sum+sensorValue;
+
+      		mat_counter++;
+      		counter_small=0;
+      		counter_large++;
+      	}
+
+
+		//Last count, be carefull with condition if n_increments is changed
+      	if (counter_large==intervals && outputValue<=250)
+      	{	
+
 
 			//saves the output
-			LUX_mat[outputValue/n_increments][0]=outputValue;
+      		LUX_mat[outputValue/n_increments][0]=outputValue;
+
 			//computes average & converts to LUX
-			LUX_mat[outputValue/n_increments][1]=PWM2LUX((float)sum/n_average);
+      		K = PWM2LUX((float)sum/n_average);
 
-			Serial.println("output:");
-			Serial.println(LUX_mat[outputValue/n_increments][0]);
-			Serial.println(outputValue);
+      		//Avoids division by zero
+      		if(outputValue>=100)
+      			sum_Kff+=(float)outputValue / K;
 
-			Serial.println("input PWM:");
-			Serial.println((float)sum/n_average);
 
-			Serial.println("LUX:");
-			Serial.println(LUX_mat[outputValue/n_increments][1]);
-			Serial.println("\n");
-			sum=0;
-		}
+      		// Serial.print("mm");
+      		//Compute TAU
+      		for (int i = 0; i < intervals; i++)
+      		{   	
+      			if ( PWM2LUX(response_values[i][0]) >= (0.632*K + (1-0.632)*first_stair))
+      			{
+      				LUX_mat[outputValue/n_increments][1] = float(i)*0.001;
+      				break;
+      			}
+      		}
 
-		if (counter_large==intervals && outputValue<250)
-		{
-			//increments output voltage
-			
-			if(outputValue+n_increments<=255)
-			outputValue=outputValue+n_increments;
+      		//Saves last value for next iteration's first value
+      		first_stair=K;
 
-			//writes new voltage to LED
-			analogWrite(analogOutPin,  outputValue); 
+      		//Print Stuff
+      		Serial.print("Kff:");
+      		Serial.print(float(outputValue)/K,4);
 
-			//write the new output value 
-			Serial.println(outputValue); 
-			Serial.print("---\n"); 
+      		Serial.print(" TAU:");
+      		Serial.println(LUX_mat[outputValue/n_increments][1],4);
+      		
+			//increments output voltage only
+      		outputValue=outputValue+n_increments;
+      		if (outputValue<=250)
+      		analogWrite(analogOutPin,  outputValue); //writes new voltage to LED
+
 
 			//reset counters
-			counter_large=0;
-		}
-		else if (counter_large==intervals && outputValue>=250)
-			not_calibrated=0;
+      		counter_large=0;
+      		mat_counter = 0;
+      		sum=0;
+      	}
+      	//Reached the end of the calibration
+      	if (counter_large==intervals && outputValue>250)
+      	{
 
+      		not_calibrated=0;
+
+      		//Calculate Kff
+      		Kff=sum_Kff/16;
+      		
+      		Serial.println("Kff:");
+      		Serial.println(Kff);
+      	}
+      }
+
+      Serial.println("Exited function");
   }
-
-  Serial.println("Exited function");
-}
 
