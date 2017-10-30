@@ -19,17 +19,14 @@ bool begin_filters;
 
 float ref_LUX=30;                     // Reference 
 
-char rx_byte = 0;
-String rx_str = "";
-boolean not_number = false;
 
 
 //Control Variables- CONTROL IN READSERIAL MONITOR
-bool FF_ON=true;		//If FeedForward is ON
-bool Filter_ON=true;	//If Filter is ON
-bool PID_ON=true;		//If PID is ON
-bool AW_ON=true;		//If Anti-Windup ON
-bool Deadzone_ON=true;	//If Deadzone ON
+bool FF_ON=true;    //If FeedForward is ON
+bool Filter_ON=true;  //If Filter is ON
+bool PID_ON=true;   //If PID is ON
+bool AW_ON=true;    //If Anti-Windup ON
+bool Deadzone_ON=true;  //If Deadzone ON
 
 
 
@@ -38,7 +35,7 @@ bool Deadzone_ON=true;	//If Deadzone ON
 /****************************************************************************/
 void tempo() 
 {
-	counter_small=1;
+  counter_small=1;
 }
 
 /****************************************************************************/
@@ -46,41 +43,42 @@ void tempo()
 /****************************************************************************/
 bool ReadSerialMonitor()
 {
+int i, start=0, n_input=0;
+// Read messages with the following sintax:
+// "LUX(L/H) FF(O/1) Filter(O/1) PID(O/1) AW(0/1) Deadzone(0/1)" 
+
 //To read imputs from the serial monitor!
-	if (Serial.available() > 0) 
-  	{    // is a character available?
-    	rx_byte = Serial.read();       // get the character
+  if (Serial.available() > 0) 
+  {    // is a character available?
+    String  inputs = Serial.readString();       // get string
 
-    	if ((rx_byte >= '0') && (rx_byte <= '9')) 
-    	{
-    		rx_str += rx_byte;
-    	}
-    	// end of string
-    	else if (rx_byte == '\n') 
-    	{
-      		
-    		if (not_number) 
-    		{
-    			Serial.println("Not a number");
-    		}
-    		else 
-    		{
-    			Serial.println("ref_PWM:");
-    			ref_LUX = rx_str.toInt();
-    			Serial.println(ref_LUX);
-    			return true;
-    		}
-      		not_number = false;         // reset flag
-      		rx_str = "";                // clear the string for reuse
-      	}
-      	else 
-      	{
-      		// non-number character received
-      		not_number = true;    // flag a non-number
-      	}
+    for(i=0;inputs[i]!='\n';i++){
+      if(inputs[i]==' '){
+        n_input+=1;
+        start=i+1;
+        
+        if(n_input==1){
+          String LUX=inputs.substring(start,i-1);
+          if (LUX=="H")
+            ref_LUX=LUX_mat[max_Output/n_increments][0]*(2/3);
+          if (LUX=="L")
+            ref_LUX=LUX_mat[max_Output/n_increments][0]*(1/3);            
+        }  
+        if(n_input==2)
+          FF_ON=inputs.substring(start,i-1).toInt();
+        if(n_input==3)
+          Filter_ON=inputs.substring(start,i-1).toInt();  
+        if(n_input==4)
+          PID_ON=inputs.substring(start,i-1).toInt();                    
+        if(n_input==5)
+          AW_ON=inputs.substring(start,i-1).toInt(); 
+        if(n_input==6)
+          Deadzone_ON=inputs.substring(start,i-1).toInt();           
+            
+      }
     }
-
-    return false; 
+  }
+  return false; 
 }
 
 
@@ -89,18 +87,18 @@ bool ReadSerialMonitor()
 /****************************************************************************/
 float ComputeTau(float ref_LUX)
 {
-	for (int i = 0; i < 25; i++)
-  	{
-  		if(LUX_mat[i][0]>ref_LUX*Kff)
-  		{
-  			tau=LUX_mat[i][1];
-  			Serial.print("Tau chosen:");
-  			Serial.println(tau,4);
-  			return tau;
-  		}
+  for (int i = 0; i < 25; i++)
+    {
+      if(LUX_mat[i][0]>ref_LUX*Kff)
+      {
+        tau=LUX_mat[i][1];
+        Serial.print("Tau chosen:");
+        Serial.println(tau,4);
+        return tau;
+      }
 
-  	}
-  	return -1;
+    }
+    return -1;
 }
 
 
@@ -111,33 +109,30 @@ float ComputeTau(float ref_LUX)
   void setup() 
   {
   // initialize serial communication at 9600 bits per second:
-  	Serial.begin(115200); //REVIEW THIS
+    Serial.begin(115200); //REVIEW THIS
 
   // initialize interrupt
-  	Timer1.initialize(microseconds) ;
-  	Timer1.attachInterrupt(tempo); 
+    Timer1.initialize(microseconds) ;
+    Timer1.attachInterrupt(tempo); 
 
-	//Serial.println(outputValue); 
-	//Serial.print("---\n"); 
+    counter_small=0; 
 
-  	counter_small=0; 
+    sensorValue = 0; 
+    outputValue = 0; 
 
-  	sensorValue = 0; 
-  	outputValue = 0; 
+    Calibration();
+    Serial.println("Exited setup");
 
-  	Calibration();
-  	Serial.println("Exited setup");
-
-  	//Change interuption time for control
-  	microseconds=10000;
+    //Change interuption time for control
+    microseconds=10000;
    // initialize interrupt
-  	Timer1.initialize(microseconds) ;
-  	Timer1.attachInterrupt(tempo); 	
+    Timer1.initialize(microseconds) ;
+    Timer1.attachInterrupt(tempo);  
 
-  	//Begin filters for control
-  	begin_filters=true;
+    //Begin filters for control
+    begin_filters=true;
 
-  	tau=ComputeTau(ref_LUX);
+    tau=ComputeTau(ref_LUX);
 
   }
 
@@ -148,9 +143,9 @@ float ComputeTau(float ref_LUX)
   {   
 
 
-  	if (ReadSerialMonitor())
-  		tau=ComputeTau(ref_LUX);
+    if (ReadSerialMonitor())
+      tau=ComputeTau(ref_LUX);
 
 
-  	Controller(ref_LUX, tau);
+    Controller(ref_LUX, tau);
   }
